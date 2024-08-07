@@ -1,0 +1,54 @@
+{
+  "mver": "1.2.0",
+  "control": {
+    "identity": {
+      "name": "noVNC",
+      "version": "1.0",
+      "displayname": "noVNC",
+      "icon": "./assets/vnc.png",
+      "type": "guid://c2d3a56e-ff2b-4250-8fe1-3cbab29509a0",
+      "start": "./control/index.html"
+    },
+    "environment": {
+      "extensions": {
+        "HMI": {
+          "mandatory": true,
+          "version": "~1.0.0"
+        }
+      }
+    },
+    "metadata": {
+      "author": "Marco Buffa"
+    },
+    "contracts": {
+      "api": {
+        "methods": {},
+        "events": {},
+        "properties": {
+          "VNCServerAddress":{
+            "type": "string",
+            "default": "192.168.0.100"
+          },
+          "VNCServerPort":{
+            "type": "number",
+            "default": "5900"
+          },
+          "EdgeServerAddress":{
+            "type": "string",
+            "default": "127.0.0.1"
+          },
+          "EdgeServerPort":{
+            "type": "number",
+            "default": "45900"
+          },
+          "Password":{
+            "type": "string",
+            "default": "ChangeMe"
+          }
+        }
+      }
+    },
+    "types": {}
+  }
+}
+  

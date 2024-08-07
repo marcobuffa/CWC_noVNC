@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="stylesheet" href="css/main.css" />
+		<title>RTSP Video Streamer CWC</title>
+		<script type="text/javascript" src="libs/jsmpeg.min.js"></script>
+		<script src="./libs/webcc.min.js"></script>
+	</head>
+	<body>
+		<!-- HTML Structure -->
+		<div id="container" class="player">
+			<div id="video-container" class="video"></div>
+		</div>
+		
+		<script type="text/javascript">
+		    let jsmpegPlayer;
+			const videoContainer = document.getElementById('video-container');
+			var ievdIP = "127.0.0.1"; //IP address of the Edge device (UCPs have an Edge runtime onboard)
+			var streamUrl = "rtsp://192.168.1.104:8554/mystream"; //URI of the RTSP Camera
+
+			//Function to start a new video stream decode
+			function startStream() {
+				console.log("Trying to fetch http://" + ievdIP + ":33030/start"); //Just log some information
+				
+				//Create the HTTP POST request to the Edge app, passing information about the camera and the Edge app
+				fetch(`http://${ievdIP}:33030/start`, { 
+					method: 'POST',
+					headers: {'Content-Type': 'application/json;charset=utf-8'},
+					body: JSON.stringify({streamUrl, ievdIP}) //Here you are the information
+				})
+				.then((response) => response.json()) //Collect the response (not used at the moment)
+				.then((data) => { //Collect the data
+
+					//If a connection is already in place, stop it
+					if (jsmpegPlayer) {
+						jsmpegPlayer.stop();
+						jsmpegPlayer.destroy();
+					}
+
+					//Create and connect a new HTML element (video container)
+					const canvas = document.createElement('canvas');
+					canvas.id = 'jsmpeg-player';
+					document.getElementById('video-container').appendChild(canvas);
+
+					console.log("Websockets url: " + data.url); //Just log some information
+
+					//Start the player
+					jsmpegPlayer = new JSMpeg.Player(data.url, {
+						canvas, //In the new HTML element
+						autoplay: true, //Autostart
+						audio: false, //No audio (if any) because of the autoplay
+					})
+				})
+			}
+
+			//WinCC Unified callback (it's executed when new parameters come from WinCC)
+			function setProperty() {
+				ievdIP = WebCC.Properties.EdgeServerAddress; //Get new Edge application IP address
+				streamUrl = WebCC.Properties.MediaRTSPPath; //Get new RTSP Camera URI
+				startStream(); //Restart the video stream decode
+			}
+
+			//Try to connect to the WinCC Unified RT
+			WebCC.start(
+				function(result) {
+					if (result) { //Running in WinCC (yeah)
+						console.log("I'm in WinCC :-)");
+						WebCC.onPropertyChanged.subscribe(setProperty); //Subscribe the callback
+						setProperty(); //Call the callback for the first time to setup and start the stream decode
+					} else { //Running stand alone in a web browser
+						console.log("Let me alone: I'm not in WinCC :-(");
+						startStream(); //Start the stream decode with default parameters
+					}
+				},
+				{
+                    methods: {}, //No methods here
+                    events: [], //No events here
+                    properties: { //Collection of properties
+						MediaRTSPPath: 'rtsp://192.168.0.100:8554/mystream',
+						EdgeServerAddress: '127.0.0.1'
+					}
+                },
+				["HMI"],
+				10000 //10s timeout
+			);
+		</script>
+	</body>
+</html>
