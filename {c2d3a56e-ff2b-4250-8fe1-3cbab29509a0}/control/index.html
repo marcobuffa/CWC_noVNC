@@ -4,54 +4,196 @@
 		<meta charset="UTF-8" />
 		<link rel="stylesheet" href="css/main.css" />
 		<title>RTSP Video Streamer CWC</title>
-		<script src="./libs/webcc.min.js"></script>
+		<script src="include/util.js"></script>
+		<script src="libs/webcc.min.js"></script>
 	</head>
 	<body>
 		<!-- HTML Structure -->
-		<div id="container" class="player">
-			<div id="video-container" class="video"></div>
-		</div>
+		<div id="noVNC_container">
+            <div id="noVNC_status_bar" class="noVNC_status_bar" style="margin-top: 0px;">
+                <table border=0 width="100%">
+					<tr>
+						<td>
+							<div id="noVNC_status" style="position: relative; height: auto;">
+								Loading
+							</div>
+						</td>
+						<td width="1%">
+							<div id="noVNC_buttons">
+								<input type=button value="Send CtrlAltDel" id="sendCtrlAltDelButton">
+								<span id="noVNC_xvp_buttons">
+									<input type=button value="Shutdown" id="xvpShutdownButton">
+									<input type=button value="Reboot" id="xvpRebootButton">
+									<input type=button value="Reset" id="xvpResetButton">
+								</span>
+							</div>
+						</td>
+                	</tr>
+				</table>
+            </div>
+            <canvas id="noVNC_canvas" width="640px" height="20px">
+                Canvas not supported.
+            </canvas>
+        </div>
 		
 		<script type="text/javascript">
-		    let jsmpegPlayer;
-			const videoContainer = document.getElementById('video-container');
-			var ievdIP = "127.0.0.1"; //IP address of the Edge device (UCPs have an Edge runtime onboard)
-			var streamUrl = "rtsp://192.168.1.104:8554/mystream"; //URI of the RTSP Camera
 
-			//Function to start a new video stream decode
-			function startStream() {
-				console.log("Trying to fetch http://" + ievdIP + ":33030/start"); //Just log some information
-				
-				//Create the HTTP POST request to the Edge app, passing information about the camera and the Edge app
-				fetch(`http://${ievdIP}:33030/start`, { 
-					method: 'POST',
-					headers: {'Content-Type': 'application/json;charset=utf-8'},
-					body: JSON.stringify({streamUrl, ievdIP}) //Here you are the information
-				})
-				.then((response) => response.json()) //Collect the response (not used at the moment)
-				.then((data) => { //Collect the data
+			// Load supporting scripts
+			Util.load_scripts(["webutil.js", "base64.js", "websock.js", "des.js",
+							"keysymdef.js", "keyboard.js", "input.js", "display.js",
+							"inflator.js", "rfb.js", "keysym.js"]);
 
-					//If a connection is already in place, stop it
-					if (jsmpegPlayer) {
-						jsmpegPlayer.stop();
-						jsmpegPlayer.destroy();
-					}
+			var rfb;
+			var resizeTimeout;
 
-					//Create and connect a new HTML element (video container)
-					const canvas = document.createElement('canvas');
-					canvas.id = 'jsmpeg-player';
-					document.getElementById('video-container').appendChild(canvas);
-
-					console.log("Websockets url: " + data.url); //Just log some information
-
-					//Start the player
-					jsmpegPlayer = new JSMpeg.Player(data.url, {
-						canvas, //In the new HTML element
-						autoplay: true, //Autostart
-						audio: false, //No audio (if any) because of the autoplay
-					})
-				})
+			function UIresize() {
+				if (WebUtil.getConfigVar('resize', false)) {
+					var innerW = window.innerWidth;
+					var innerH = window.innerHeight;
+					var controlbarH = $D('noVNC_status_bar').offsetHeight;
+					var padding = 5;
+					if (innerW !== undefined && innerH !== undefined)
+						rfb.requestDesktopSize(innerW, innerH - controlbarH - padding);
+				}
 			}
+
+			function FBUComplete(rfb, fbu) {
+				UIresize();
+				rfb.set_onFBUComplete(function() { });
+			}
+
+			function passwordRequired(rfb) {
+				var msg;
+				msg = '<form onsubmit="return setPassword();"';
+				msg += '  style="margin-bottom: 0px">';
+				msg += 'Password Required: ';
+				msg += '<input type=password size=10 id="password_input" class="noVNC_status">';
+				msg += '<\/form>';
+				$D('noVNC_status_bar').setAttribute("class", "noVNC_status_warn");
+				$D('noVNC_status').innerHTML = msg;
+			}
+
+			function setPassword() {
+				rfb.sendPassword($D('password_input').value);
+				return false;
+			}
+
+			function sendCtrlAltDel() {
+				rfb.sendCtrlAltDel();
+				return false;
+			}
+
+			function xvpShutdown() {
+				rfb.xvpShutdown();
+				return false;
+			}
+
+			function xvpReboot() {
+				rfb.xvpReboot();
+				return false;
+			}
+
+			function xvpReset() {
+				rfb.xvpReset();
+				return false;
+			}
+
+			function updateState(rfb, state, oldstate, msg) {
+				var s, sb, cad, level;
+				s = $D('noVNC_status');
+				sb = $D('noVNC_status_bar');
+				cad = $D('sendCtrlAltDelButton');
+				switch (state) {
+					case 'failed':       level = "error";  break;
+					case 'fatal':        level = "error";  break;
+					case 'normal':       level = "normal"; break;
+					case 'disconnected': level = "normal"; break;
+					case 'loaded':       level = "normal"; break;
+					default:             level = "warn";   break;
+				}
+
+				if (state === "normal") {
+					cad.disabled = false;
+				} else {
+					cad.disabled = true;
+					xvpInit(0);
+				}
+
+				if (typeof(msg) !== 'undefined') {
+					sb.setAttribute("class", "noVNC_status_" + level);
+					s.textContent = msg;
+				}
+			}
+
+			window.onresize = function () {
+				// When the window has been resized, wait until the size remains
+				// the same for 0.5 seconds before sending the request for changing
+				// the resolution of the session
+				clearTimeout(resizeTimeout);
+				resizeTimeout = setTimeout(function(){
+					UIresize();
+				}, 500);
+			};
+
+			function xvpInit(ver) {
+				var xvpbuttons;
+				xvpbuttons = $D('noVNC_xvp_buttons');
+				if (ver >= 1) {
+					xvpbuttons.style.display = 'inline';
+				} else {
+					xvpbuttons.style.display = 'none';
+				}
+			}
+
+			window.onscriptsload = function () {
+				var host, port, password, path, token;
+
+				$D('sendCtrlAltDelButton').style.display = "inline";
+				$D('sendCtrlAltDelButton').onclick = sendCtrlAltDel;
+				$D('xvpShutdownButton').onclick = xvpShutdown;
+				$D('xvpRebootButton').onclick = xvpReboot;
+				$D('xvpResetButton').onclick = xvpReset;
+
+				WebUtil.init_logging(WebUtil.getConfigVar('logging', 'warn'));
+				document.title = unescape(WebUtil.getConfigVar('title', 'noVNC'));
+				// By default, use the host and port of server that served this file
+				host = WebUtil.getConfigVar('host', window.location.hostname);
+				port = WebUtil.getConfigVar('port', window.location.port);
+
+				// if port == 80 (or 443) then it won't be present and should be
+				// set manually
+				if (!port) {
+					if (window.location.protocol.substring(0,5) == 'https') {
+						port = 443;
+					}
+					else if (window.location.protocol.substring(0,4) == 'http') {
+						port = 80;
+					}
+				}
+
+				password = WebUtil.getConfigVar('password', '');
+				path = WebUtil.getConfigVar('path', 'websockify');
+
+				try {
+					rfb = new RFB({	'target': $D('noVNC_canvas'),
+									'encrypt': WebUtil.getConfigVar('encrypt', (window.location.protocol === "https:")),
+									'repeaterID': WebUtil.getConfigVar('repeaterID', ''),
+									'true_color': WebUtil.getConfigVar('true_color', true),
+									'local_cursor': WebUtil.getConfigVar('cursor', true),
+									'shared': WebUtil.getConfigVar('shared', true),
+									'view_only': WebUtil.getConfigVar('view_only', false),
+									'onUpdateState': updateState,
+									'onXvpInit': xvpInit,
+									'onPasswordRequired': passwordRequired,
+									'onFBUComplete': FBUComplete});
+				} catch (exc) {
+					updateState(null, 'fatal', null, 'Unable to create RFB client -- ' + exc);
+					return; // don't continue trying to connect
+				}
+
+				rfb.connect(host, port, password, path);
+			};
+			
 
 			//WinCC Unified callback (it's executed when new parameters come from WinCC)
 			function setProperty() {
