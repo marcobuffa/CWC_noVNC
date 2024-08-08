@@ -3,8 +3,19 @@
 	<head>
 		<meta charset="UTF-8" />
 		<link rel="stylesheet" href="css/main.css" />
-		<title>RTSP Video Streamer CWC</title>
+		<title>noVNC CWC</title>
 		<script src="include/util.js"></script>
+		<script src="include/webutil.js"></script>
+		<script src="include/base64.js"></script>
+		<script src="include/websock.js"></script>
+		<script src="include/des.js"></script>
+		<script src="include/keysymdef.js"></script>
+		<script src="include/keyboard.js"></script>
+		<script src="include/input.js"></script>
+		<script src="include/display.js"></script>
+		<script src="include/inflator.js"></script>
+		<script src="include/rfb.js"></script>
+		<script src="include/keysym.js"></script>
 		<script src="libs/webcc.min.js"></script>
 	</head>
 	<body>
@@ -38,12 +49,12 @@
 		
 		<script type="text/javascript">
 
-			// Load supporting scripts
-			Util.load_scripts(["webutil.js", "base64.js", "websock.js", "des.js",
-							"keysymdef.js", "keyboard.js", "input.js", "display.js",
-							"inflator.js", "rfb.js", "keysym.js"]);
-
-			var rfb, resizeTimeout, host, port, password;
+			var rfb, resizeTimeout;
+			
+			//default values as for manifest.json
+			var host = '192.168.1.102';
+			var port = 45900;
+			var password = 'ChangeMe';
 
 			function UIresize() {
 				var innerW = window.innerWidth;
@@ -134,7 +145,7 @@
 				}
 			}
 
-			/*window.onresize = function () {
+			window.onresize = function () {
 				// When the window has been resized, wait until the size remains
 				// the same for 0.5 seconds before sending the request for changing
 				// the resolution of the session
@@ -142,7 +153,7 @@
 				resizeTimeout = setTimeout(function(){
 					UIresize();
 				}, 500);
-			};*/
+			};
 
 			function xvpInit(ver) {
 				var xvpbuttons;
@@ -154,10 +165,6 @@
 				}
 			}
 
-			/*window.onscriptsload = function () {
-				startConnection();
-			}*/
-
 			function startConnection() {
 				$D('sendCtrlAltDelButton').style.display = "inline";
 				$D('sendCtrlAltDelButton').onclick = sendCtrlAltDel;
@@ -165,17 +172,12 @@
 				$D('xvpRebootButton').onclick = xvpReboot;
 				$D('xvpResetButton').onclick = xvpReset;
 
-				//default values as for manifest.json
-				host = '192.168.1.100';
-				port = 5900;
-				password = 'ChangeMe';
-
 				try {
 					rfb = new RFB({	'target': $D('noVNC_canvas'),
 									'encrypt': false,
 									'repeaterID': '',
 									'true_color': true,
-									'local_cursor': true,
+									'local_cursor': false,
 									'shared': true,
 									'view_only': false,
 									'onUpdateState': updateState,
@@ -190,7 +192,6 @@
 				rfb.connect(host, port, password, 'websockify');
 			};
 			
-
 			//WinCC Unified callback (it's executed when new parameters come from WinCC)
 			function setProperty() {
 				host = WebCC.Properties.EdgeServerAddress;
@@ -215,9 +216,9 @@
                     methods: {}, //No methods here
                     events: [], //No events here
                     properties: { //Collection of properties
-						EdgeServerAddress: '192.168.1.100',
-						EdgeServerPort = 5900,
-						Password = 'ChangeMe'
+						EdgeServerAddress: '192.168.1.102',
+						EdgeServerPort: 45900,
+						Password: 'ChangeMe'
 					}
                 },
 				["HMI"],
