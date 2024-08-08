@@ -2,27 +2,27 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<link rel="stylesheet" href="css/main.css" />
+		<link rel="stylesheet" href="css/base.css" />
 		<title>noVNC CWC</title>
-		<script src="include/util.js"></script>
-		<script src="include/webutil.js"></script>
-		<script src="include/base64.js"></script>
-		<script src="include/websock.js"></script>
-		<script src="include/des.js"></script>
-		<script src="include/keysymdef.js"></script>
-		<script src="include/keyboard.js"></script>
-		<script src="include/input.js"></script>
-		<script src="include/display.js"></script>
-		<script src="include/inflator.js"></script>
-		<script src="include/rfb.js"></script>
-		<script src="include/keysym.js"></script>
+		<script src="libs/util.js"></script>
+		<script src="libs/webutil.js"></script>
+		<script src="libs/base64.js"></script>
+		<script src="libs/websock.js"></script>
+		<script src="libs/des.js"></script>
+		<script src="libs/keysymdef.js"></script>
+		<script src="libs/keyboard.js"></script>
+		<script src="libs/input.js"></script>
+		<script src="libs/display.js"></script>
+		<script src="libs/inflator.js"></script>
+		<script src="libs/rfb.js"></script>
+		<script src="libs/keysym.js"></script>
 		<script src="libs/webcc.min.js"></script>
 	</head>
 	<body>
 		<!-- HTML Structure -->
 		<div id="noVNC_container">
             <div id="noVNC_status_bar" class="noVNC_status_bar" style="margin-top: 0px;">
-                <table border=0 width="100%">
+                <table>
 					<tr>
 						<td>
 							<div id="noVNC_status" style="position: relative; height: auto;">
@@ -52,9 +52,9 @@
 			var rfb, resizeTimeout;
 			
 			//default values as for manifest.json
-			var host = '192.168.1.102';
-			var port = 45900;
-			var password = 'ChangeMe';
+			var host = '192.168.2.102';
+			var port = 5900;
+			var password = 'qzwxecds';
 
 			function UIresize() {
 				var innerW = window.innerWidth;
@@ -216,9 +216,9 @@
                     methods: {}, //No methods here
                     events: [], //No events here
                     properties: { //Collection of properties
-						EdgeServerAddress: '192.168.1.102',
-						EdgeServerPort: 45900,
-						Password: 'ChangeMe'
+						EdgeServerAddress: '192.168.2.102',
+						EdgeServerPort: 5900,
+						Password: 'qzwxecds'
 					}
                 },
 				["HMI"],
