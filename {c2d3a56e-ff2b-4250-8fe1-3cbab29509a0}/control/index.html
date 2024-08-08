@@ -43,18 +43,15 @@
 							"keysymdef.js", "keyboard.js", "input.js", "display.js",
 							"inflator.js", "rfb.js", "keysym.js"]);
 
-			var rfb;
-			var resizeTimeout;
+			var rfb, resizeTimeout, host, port, password;
 
 			function UIresize() {
-				if (WebUtil.getConfigVar('resize', false)) {
-					var innerW = window.innerWidth;
-					var innerH = window.innerHeight;
-					var controlbarH = $D('noVNC_status_bar').offsetHeight;
-					var padding = 5;
-					if (innerW !== undefined && innerH !== undefined)
-						rfb.requestDesktopSize(innerW, innerH - controlbarH - padding);
-				}
+				var innerW = window.innerWidth;
+				var innerH = window.innerHeight;
+				var controlbarH = $D('noVNC_status_bar').offsetHeight;
+				var padding = 5;
+				if (innerW !== undefined && innerH !== undefined)
+					rfb.requestDesktopSize(innerW, innerH - controlbarH - padding);
 			}
 
 			function FBUComplete(rfb, fbu) {
@@ -104,12 +101,24 @@
 				sb = $D('noVNC_status_bar');
 				cad = $D('sendCtrlAltDelButton');
 				switch (state) {
-					case 'failed':       level = "error";  break;
-					case 'fatal':        level = "error";  break;
-					case 'normal':       level = "normal"; break;
-					case 'disconnected': level = "normal"; break;
-					case 'loaded':       level = "normal"; break;
-					default:             level = "warn";   break;
+					case 'failed': 
+						level = "error";
+						break;
+					case 'fatal':
+						level = "error";
+						break;
+					case 'normal':
+						level = "normal";
+						break;
+					case 'disconnected':
+						level = "normal";
+						break;
+					case 'loaded':
+						level = "normal";
+						break;
+					default:
+						level = "warn";
+						break;
 				}
 
 				if (state === "normal") {
@@ -125,7 +134,7 @@
 				}
 			}
 
-			window.onresize = function () {
+			/*window.onresize = function () {
 				// When the window has been resized, wait until the size remains
 				// the same for 0.5 seconds before sending the request for changing
 				// the resolution of the session
@@ -133,7 +142,7 @@
 				resizeTimeout = setTimeout(function(){
 					UIresize();
 				}, 500);
-			};
+			};*/
 
 			function xvpInit(ver) {
 				var xvpbuttons;
@@ -145,43 +154,30 @@
 				}
 			}
 
-			window.onscriptsload = function () {
-				var host, port, password, path, token;
+			/*window.onscriptsload = function () {
+				startConnection();
+			}*/
 
+			function startConnection() {
 				$D('sendCtrlAltDelButton').style.display = "inline";
 				$D('sendCtrlAltDelButton').onclick = sendCtrlAltDel;
 				$D('xvpShutdownButton').onclick = xvpShutdown;
 				$D('xvpRebootButton').onclick = xvpReboot;
 				$D('xvpResetButton').onclick = xvpReset;
 
-				WebUtil.init_logging(WebUtil.getConfigVar('logging', 'warn'));
-				document.title = unescape(WebUtil.getConfigVar('title', 'noVNC'));
-				// By default, use the host and port of server that served this file
-				host = WebUtil.getConfigVar('host', window.location.hostname);
-				port = WebUtil.getConfigVar('port', window.location.port);
-
-				// if port == 80 (or 443) then it won't be present and should be
-				// set manually
-				if (!port) {
-					if (window.location.protocol.substring(0,5) == 'https') {
-						port = 443;
-					}
-					else if (window.location.protocol.substring(0,4) == 'http') {
-						port = 80;
-					}
-				}
-
-				password = WebUtil.getConfigVar('password', '');
-				path = WebUtil.getConfigVar('path', 'websockify');
+				//default values as for manifest.json
+				host = '192.168.1.100';
+				port = 5900;
+				password = 'ChangeMe';
 
 				try {
 					rfb = new RFB({	'target': $D('noVNC_canvas'),
-									'encrypt': WebUtil.getConfigVar('encrypt', (window.location.protocol === "https:")),
-									'repeaterID': WebUtil.getConfigVar('repeaterID', ''),
-									'true_color': WebUtil.getConfigVar('true_color', true),
-									'local_cursor': WebUtil.getConfigVar('cursor', true),
-									'shared': WebUtil.getConfigVar('shared', true),
-									'view_only': WebUtil.getConfigVar('view_only', false),
+									'encrypt': false,
+									'repeaterID': '',
+									'true_color': true,
+									'local_cursor': true,
+									'shared': true,
+									'view_only': false,
 									'onUpdateState': updateState,
 									'onXvpInit': xvpInit,
 									'onPasswordRequired': passwordRequired,
@@ -191,15 +187,16 @@
 					return; // don't continue trying to connect
 				}
 
-				rfb.connect(host, port, password, path);
+				rfb.connect(host, port, password, 'websockify');
 			};
 			
 
 			//WinCC Unified callback (it's executed when new parameters come from WinCC)
 			function setProperty() {
-				ievdIP = WebCC.Properties.EdgeServerAddress; //Get new Edge application IP address
-				streamUrl = WebCC.Properties.MediaRTSPPath; //Get new RTSP Camera URI
-				startStream(); //Restart the video stream decode
+				host = WebCC.Properties.EdgeServerAddress;
+				port = WebCC.Properties.EdgeServerPort;
+				password = WebCC.Properties.Password;
+				startConnection(); //Restart the VNC connection
 			}
 
 			//Try to connect to the WinCC Unified RT
@@ -208,18 +205,19 @@
 					if (result) { //Running in WinCC (yeah)
 						console.log("I'm in WinCC :-)");
 						WebCC.onPropertyChanged.subscribe(setProperty); //Subscribe the callback
-						setProperty(); //Call the callback for the first time to setup and start the stream decode
+						setProperty(); //Call the callback for the first time to setup and start the VNC connection
 					} else { //Running stand alone in a web browser
 						console.log("Let me alone: I'm not in WinCC :-(");
-						startStream(); //Start the stream decode with default parameters
+						startConnection(); //Start the VNC connection
 					}
 				},
 				{
                     methods: {}, //No methods here
                     events: [], //No events here
                     properties: { //Collection of properties
-						MediaRTSPPath: 'rtsp://192.168.0.100:8554/mystream',
-						EdgeServerAddress: '127.0.0.1'
+						EdgeServerAddress: '192.168.1.100',
+						EdgeServerPort = 5900,
+						Password = 'ChangeMe'
 					}
                 },
 				["HMI"],

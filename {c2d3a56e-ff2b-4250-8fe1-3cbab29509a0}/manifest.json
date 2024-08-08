@@ -27,7 +27,7 @@
         "properties": {
           "VNCServerAddress":{
             "type": "string",
-            "default": "192.168.0.100"
+            "default": "192.168.1.100"
           },
           "VNCServerPort":{
             "type": "number",
