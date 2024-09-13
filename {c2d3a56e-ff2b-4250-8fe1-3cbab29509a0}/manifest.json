@@ -25,21 +25,13 @@
         "methods": {},
         "events": {},
         "properties": {
-          "VNCServerAddress":{
-            "type": "string",
-            "default": "192.168.1.102"
-          },
-          "VNCServerPort":{
-            "type": "number",
-            "default": "5900"
-          },
           "EdgeServerAddress":{
             "type": "string",
-            "default": "192.168.2.102"
+            "default": "127.0.0.1"
           },
           "EdgeServerPort":{
             "type": "number",
-            "default": "5900"
+            "default": "35900"
           },
           "Password":{
             "type": "string",
