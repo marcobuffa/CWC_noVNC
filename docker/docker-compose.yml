@@ -1,0 +1,18 @@
+version: '2.4'
+services:
+  websockify:
+    image: 'websockify:1.0.0'
+    restart: unless-stopped
+    privileged: true
+    networks:
+      - proxy-redirect
+    volumes:
+      - './cfg-data/:/cfg-data/'
+    ports:
+      - '35900:80'
+    mem_limit: 500mb
+networks:
+  proxy-redirect:
+    external: true
+    name: proxy-redirect
+    driver: host
